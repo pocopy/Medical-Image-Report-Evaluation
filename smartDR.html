@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能DR全景诊断系统 (V5.0 全量数据版)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.1/dist/umd/lucide.min.js"></script>
+
+    <style>
+        body { font-family: 'Microsoft YaHei', sans-serif; background-color: #f8fafc; }
+        
+        /* 选中状态 */
+        .finding-checkbox:checked + div {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* 标签样式 */
+        .active-tab { background-color: #eff6ff; color: #1d4ed8; border-left-color: #2563eb; }
+        
+        /* 进阶指征徽章 */
+        .badge-critical { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .badge-urgent { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+        .badge-ct { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+        .badge-mri { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .badge-none { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+        
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-slate-800">
+
+    <!-- 顶部 -->
+    <header class="bg-slate-900 text-white p-3 shadow-lg flex justify-between items-center z-30 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 p-1 rounded">
+                <i data-lucide="database" class="text-white w-5 h-5"></i>
+            </div>
+            <h1 class="text-lg font-bold tracking-wider">SmartDR <span class="text-xs font-normal text-slate-400 ml-2">全量数据版 (54项)</span></h1>
+        </div>
+        <div class="text-[10px] text-slate-400 border border-slate-700 px-2 py-0.5 rounded">v5.0 Sync with MD</div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- 1. 侧边栏导航 -->
+        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col z-20">
+            <nav class="flex-1 overflow-y-auto space-y-0.5 p-2">
+                <div class="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase">胸部 (Chest)</div>
+                <button onclick="app.switchTab('chest_common')" id="tab-chest_common" class="nav-btn w-full text-left p-2.5 rounded hover:bg-slate-50 border-l-4 border-transparent flex items-center gap-2 transition-all active-tab text-sm">
+                    <i data-lucide="wind" class="w-4 h-4 text-blue-500"></i> 常见病变
+                </button>
+                <button onclick="app.switchTab('chest_urgent')" id="tab-chest_urgent" class="nav-btn w-full text-left p-2.5 rounded hover:bg-slate-50 border-l-4 border-transparent flex items-center gap-2 transition-all text-sm">
+                    <i data-lucide="alert-circle" class="w-4 h-4 text-orange-500"></i> 急症与危重
+                </button>
+                <button onclick="app.switchTab('chest_chronic')" id="tab-chest_chronic" class="nav-btn w-full text-left p-2.5 rounded hover:bg-slate-50 border-l-4 border-transparent flex items-center gap-2 transition-all text-sm">
+                    <i data-lucide="clock" class="w-4 h-4 text-green-600"></i> 慢病与变异
+                </button>
+                
+                <div class="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase mt-2">骨骼 (Bone)</div>
+                <button onclick="app.switchTab('bone_trauma')" id="tab-bone_trauma" class="nav-btn w-full text-left p-2.5 rounded hover:bg-slate-50 border-l-4 border-transparent flex items-center gap-2 transition-all text-sm">
+                    <i data-lucide="bone" class="w-4 h-4 text-slate-600"></i> 骨折与创伤
+                </button>
+                <button onclick="app.switchTab('bone_disease')" id="tab-bone_disease" class="nav-btn w-full text-left p-2.5 rounded hover:bg-slate-50 border-l-4 border-transparent flex items-center gap-2 transition-all text-sm">
+                    <i data-lucide="activity" class="w-4 h-4 text-purple-500"></i> 退变与骨病
+                </button>
+
+                <div class="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase mt-2">腹部 & ICU</div>
+                <button onclick="app.switchTab('abdomen')" id="tab-abdomen" class="nav-btn w-full text-left p-2.5 rounded hover:bg-slate-50 border-l-4 border-transparent flex items-center gap-2 transition-all text-sm">
+                    <i data-lucide="stethoscope" class="w-4 h-4 text-yellow-600"></i> 腹部急腹症
+                </button>
+                <button onclick="app.switchTab('icu')" id="tab-icu" class="nav-btn w-full text-left p-2.5 rounded hover:bg-slate-50 border-l-4 border-transparent flex items-center gap-2 transition-all text-sm">
+                    <i data-lucide="siren" class="w-4 h-4 text-red-500"></i> ICU管路/危急
+                </button>
+            </nav>
+        </aside>
+
+        <!-- 2. 中间：选择区 -->
+        <main class="flex-1 flex flex-col bg-slate-50 relative min-w-0">
+            <div class="p-3 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-10">
+                <h2 class="font-bold text-slate-700 flex items-center gap-2 text-sm">
+                    <i data-lucide="eye" class="text-blue-500 w-4 h-4"></i>
+                    <span id="region-title">影像所见 (Findings)</span>
+                </h2>
+                <button onclick="app.reset()" class="text-xs font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-slate-100">
+                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i> 重置
+                </button>
+            </div>
+            
+            <div id="findings-container" class="flex-1 overflow-y-auto p-4 grid grid-cols-1 xl:grid-cols-2 gap-3 content-start pb-24">
+                <!-- Javascript Injection -->
+            </div>
+        </main>
+
+        <!-- 3. 右侧：报告预览 -->
+        <aside class="w-[400px] bg-white border-l border-slate-200 flex flex-col z-20 shadow-xl">
+            <div class="p-3 bg-slate-50 border-b border-slate-200">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                    <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i> 智能报告预览
+                </h2>
+            </div>
+
+            <div class="flex-1 p-5 overflow-y-auto space-y-5">
+                <!-- Findings -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <i data-lucide="search" class="w-3 h-3"></i> 影像所见
+                    </h3>
+                    <div id="report-findings" class="text-sm text-slate-500 leading-relaxed p-3 bg-slate-50 rounded border border-dashed border-slate-300 min-h-[50px]">
+                        请在左侧勾选...
+                    </div>
+                </div>
+
+                <!-- Impression -->
+                <div>
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <i data-lucide="clipboard-check" class="w-3 h-3"></i> 诊断意见
+                    </h3>
+                    <div id="report-impression" class="text-sm font-bold text-slate-800 leading-relaxed pl-3 border-l-4 border-transparent min-h-[30px] flex items-center">
+                        -
+                    </div>
+                </div>
+
+                <!-- Next Step -->
+                <div id="rec-wrapper" class="hidden">
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <i data-lucide="git-branch" class="w-3 h-3"></i> 进阶指征 (Next Step)
+                    </h3>
+                    <div id="report-rec" class="space-y-2"></div>
+                </div>
+
+                <!-- Critical Alert -->
+                <div id="critical-alert" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg animate-pulse shadow-sm">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="siren" class="text-red-600 w-5 h-5 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-red-700 text-xs">🔴 危急值警报</h4>
+                            <p id="critical-msg" class="text-xs text-red-600 mt-1 font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-3 border-t border-slate-200 bg-slate-50">
+                <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded shadow-md transition-colors text-sm flex justify-center items-center gap-2">
+                    <i data-lucide="printer" class="w-4 h-4"></i> 生成报告
+                </button>
+            </div>
+        </aside>
+
+    </div>
+
+    <script>
+        const app = {
+            currentTab: 'chest_common',
+            selectedIds: new Set(),
+            
+            // --- 54项全量数据 (Sync with Markdown Master Table) ---
+            data: {
+                // 1. 胸部常见 (Infectious/Common)
+                chest_common: [
+                    { id: 'c_eff', label: '胸腔积液', desc: '肋膈角变钝/消失，可见外高内低弧形致密影。', dx: '胸腔积液', tag: 'badge-ct', head: '🟧 建议 CT/超声', text: '若性质不明或需定位穿刺。' },
+                    { id: 'c_loc_eff', label: '包裹性积液', desc: '胸壁或叶间裂处可见局限性梭形密度增高影，边缘光滑。', dx: '包裹性胸腔积液', tag: 'badge-ct', head: '🟧 建议 CT/超声', text: '定位引导穿刺。' },
+                    { id: 'c_lobar', label: '大叶性肺炎', desc: '肺野内见按肺叶分布的大片状致密影，内见支气管充气征。', dx: '大叶性肺炎', tag: 'badge-none', head: '⬜ 无需进阶', text: '抗感染治疗后复查。' },
+                    { id: 'c_broncho', label: '支气管肺炎', desc: '两下肺沿纹理分布散在斑点状、小片状模糊影。', dx: '支气管肺炎', tag: 'badge-none', head: '⬜ 无需进阶', text: '抗感染治疗。' },
+                    { id: 'c_inter', label: '间质性肺炎', desc: '双肺纹理增多模糊，呈网格状或磨玻璃样改变。', dx: '间质性肺炎', tag: 'badge-ct', head: '🟧 建议 CT', text: 'HRCT确诊病毒/支原体。' },
+                    { id: 'c_tb_inf', label: '浸润型肺结核', desc: '上叶尖后段见斑点、索条、钙化混杂密度影。', dx: '浸润型肺结核', tag: 'badge-none', head: '⬜ 无需进阶', text: '痰检及PPD。' },
+                    { id: 'c_tb_cav', label: '空洞型肺结核', desc: '肺野内见厚壁空洞，内壁不光整，周围可见卫星灶。', dx: '空洞型肺结核', tag: 'badge-ct', head: '🟧 建议 CT', text: '评估空洞特征。' },
+                    { id: 'c_old', label: '陈旧性病灶', desc: '肺野内见边缘清晰的高密度钙化结节或索条影。', dx: '陈旧性病灶', tag: 'badge-none', head: '⬜ 无需进阶', text: '随诊观察。' },
+                    { id: 'c_bulla', label: '肺大疱', desc: '局限性无纹理透亮区，壁菲薄。', dx: '肺大疱', tag: 'badge-none', head: '⬜ 无需进阶', text: '防自发性气胸。' }
+                ],
+                // 2. 胸部急症与疑难 (Urgent/Referral)
+                chest_urgent: [
+                    { id: 'c_ptx', label: '气胸', desc: '患侧肺野外带可见细线状脏层胸膜影，线外无纹理。', dx: '气胸', tag: 'badge-urgent', head: '🟠 急症处理', text: '少量吸氧，大量引流。' },
+                    { id: 'c_edema', label: '肺水肿', desc: '双肺门影增大模糊呈蝶翼状，可见Kerley B线。', dx: '肺水肿 (心衰)', tag: 'badge-urgent', head: '🟠 急症处理', text: '强心利尿扩管。' },
+                    { id: 'c_tb_mil', label: '粟粒性肺结核', desc: '双肺弥漫分布大小、密度、分布均匀的细小结节。', dx: '急性血行播散型肺结核', tag: 'badge-urgent', head: '🟠 急症住院', text: '危重症。' },
+                    { id: 'c_nodule', label: '肺结节 (≤3cm)', desc: '肺野内见类圆形高密度影，直径≤3cm。', dx: '肺结节 (性质待定)', tag: 'badge-ct', head: '🟧 必须 CT', text: 'DR定性困难。' },
+                    { id: 'c_mass', label: '肺肿块 (>3cm)', desc: '团块影>3cm，边缘可见分叶及毛刺。', dx: '肺占位 (拟恶性)', tag: 'badge-ct', head: '🟧 必须 增强CT', text: '评估分期及活检。' },
+                    { id: 'c_ate', label: '肺不张', desc: '肺叶密度增高，体积缩小，纵隔向患侧移位。', dx: '肺不张', tag: 'badge-ct', head: '🟧 必须 CT', text: '查找阻塞原因。' },
+                    { id: 'c_widened', label: '纵隔增宽', desc: '上纵隔影明显增宽(>8cm)，轮廓异常。', dx: '纵隔增宽', tag: 'badge-ct', head: '🟧 必须 CTA', text: '排查主动脉夹层/瘤。' },
+                    { id: 'c_hilar', label: '肺门增大', desc: '单侧或双侧肺门影浓密、增大。', dx: '肺门增大', tag: 'badge-ct', head: '🟧 建议 CT', text: '除外占位/淋巴结。' },
+                    { id: 'c_pnem', label: '纵隔气肿', desc: '纵隔旁可见条状气体影，可见膈连续征。', dx: '纵隔气肿', tag: 'badge-urgent', head: '🟠 急症排查', text: '查食管/气管破裂。' }
+                ],
+                // 3. 胸部慢病与变异 (Chronic/Variant)
+                chest_chronic: [
+                    { id: 'c_copd', label: '慢阻肺/肺气肿', desc: '透亮度增加，纹理稀疏，膈肌低平，滴状心。', dx: '慢阻肺 (COPD)', tag: 'badge-none', head: '⬜ 无需进阶', text: '肺功能检查。' },
+                    { id: 'c_cardio', label: '心影增大', desc: '心影增大，心胸比率 > 0.5。', dx: '心影增大', tag: 'badge-none', head: '⬜ 建议超声', text: '超声心动图评估。' },
+                    { id: 'c_peri', label: '心包积液', desc: '心影向两侧扩大呈烧瓶状，心腰消失。', dx: '拟心包积液', tag: 'badge-none', head: '⬜ 必须超声', text: '超声确诊。' },
+                    { id: 'c_aortic', label: '主动脉硬化', desc: '主动脉结突出，可见弧形钙化影，走行迂曲。', dx: '主动脉硬化', tag: 'badge-none', head: '⬜ 无需进阶', text: '心血管随诊。' },
+                    { id: 'c_sarc', label: '结节病', desc: '双侧肺门及纵隔淋巴结对称性肿大。', dx: '拟结节病', tag: 'badge-ct', head: '🟧 建议 CT', text: '结合免疫指标。' },
+                    { id: 'c_plaque', label: '胸膜斑', desc: '双侧胸壁/膈面可见局限性胸膜增厚及钙化斑。', dx: '胸膜斑 (石棉肺)', tag: 'badge-none', head: '⬜ 职业病', text: '定期随访。' },
+                    { id: 'c_linear', label: '盘状肺不张', desc: '下肺野可见平行于膈面的条状致密影。', dx: '盘状肺不张', tag: 'badge-none', head: '⬜ 变异/术后', text: '无需处理。' },
+                    { id: 'c_azygos', label: '奇叶', desc: '右上肺可见倒逗号状弧形线条。', dx: '奇叶 (变异)', tag: 'badge-none', head: '⬜ 正常变异', text: '无需处理。' },
+                    { id: 'c_dextro', label: '右位心', desc: '心尖指向右侧，胃泡位于右膈下。', dx: '全内脏转位', tag: 'badge-none', head: '⬜ 正常变异', text: '术前提示。' }
+                ],
+                // 4. 骨折与创伤 (Bone Trauma) - 补全了青枝骨折、隐匿骨折
+                bone_trauma: [
+                    { id: 'b_frac', label: '明显骨折', desc: '骨皮质连续性中断，可见透亮骨折线，断端错位。', dx: '骨折', tag: 'badge-none', head: '⬜ 无需进阶', text: '骨科复位固定。' },
+                    { id: 'b_green', label: '青枝骨折', desc: '儿童骨皮质可见皱褶、凹陷或成角，未完全断裂。', dx: '青枝骨折', tag: 'badge-none', head: '⬜ 无需进阶', text: '儿童特有，保守治疗。' },
+                    { id: 'b_occult', label: '隐匿骨折 (八字征)', desc: '肘关节脂肪垫翘起 (八字征)，未见明显骨折线。', dx: '疑隐匿性骨折', tag: 'badge-ct', head: '🟧 建议 CT/MRI', text: 'DR高度怀疑，需确诊。' },
+                    { id: 'b_rib', label: '肋骨骨折', desc: '肋骨皮质断裂、错位。', dx: '肋骨骨折', tag: 'badge-ct', head: '🟧 建议 CT', text: '隐匿骨折或法医鉴定需CT。' },
+                    { id: 'b_comp', label: '压缩性骨折', desc: '椎体呈楔形变扁，前缘高度减低。', dx: '椎体压缩性骨折', tag: 'badge-mri', head: '🟦 必须 MRI', text: '鉴别新鲜/陈旧骨折。' },
+                    { id: 'b_dest', label: '骨质破坏 (恶性)', desc: '骨质虫蚀样破坏，可见骨膜反应。', dx: '骨质破坏 (恶性)', tag: 'badge-critical', head: '🔴 危急 MRI', text: '拟恶性骨肿瘤/骨髓炎。' }
+                ],
+                // 5. 骨病与退变 (Bone Disease) - 补全了法贝拉、颈肋、DISH
+                bone_disease: [
+                    { id: 'b_op', label: '骨质疏松', desc: '骨质密度普遍减低，皮质变薄，小梁稀疏。', dx: '骨质疏松', tag: 'badge-none', head: '⬜ 建议DEXA', text: '骨密度仪检查。' },
+                    { id: 'b_sco', label: '脊柱侧弯', desc: '脊柱序列向侧方弯曲。', dx: '脊柱侧弯', tag: 'badge-none', head: '⬜ 脊柱外科', text: '测量Cobb角。' },
+                    { id: 'b_kyph', label: '脊柱后凸', desc: '胸椎生理曲度加大，呈后凸畸形。', dx: '脊柱后凸', tag: 'badge-ct', head: '🟧 建议 CT', text: '评估骨质结构。' },
+                    { id: 'b_as', label: '强直性脊柱炎', desc: '椎体边缘骨桥形成呈竹节样，骶髂关节模糊。', dx: '强直性脊柱炎', tag: 'badge-mri', head: '🟦 建议 MRI', text: '早期诊断。' },
+                    { id: 'b_spon', label: '脊柱退行性变', desc: '椎体边缘骨质增生，椎间隙变窄。', dx: '脊柱退行性变', tag: 'badge-none', head: '⬜ 对症治疗', text: '有神经症状查MRI。' },
+                    { id: 'b_dish', label: '韧带骨化 (DISH)', desc: '椎体前缘可见连续蜡泪样/流注样骨化影。', dx: 'DISH病', tag: 'badge-none', head: '⬜ 慢病', text: '观察有无吞咽困难。' },
+                    { id: 'b_cerv', label: '颈肋', desc: 'C7椎体横突发出的额外小肋骨。', dx: '颈肋', tag: 'badge-none', head: '⬜ 变异', text: '有手麻查MRI(胸廓出口综合征)。' },
+                    { id: 'b_fab', label: '法贝拉骨', desc: '膝关节后方软组织内可见边缘光整的小籽骨。', dx: '法贝拉骨', tag: 'badge-none', head: '⬜ 正常变异', text: '无需处理。' }
+                ],
+                // 6. 腹部 (Abdomen)
+                abdomen: [
+                    { id: 'a_perf', label: '消化道穿孔', desc: '立位膈下可见新月形游离气体影。', dx: '气腹 (穿孔)', tag: 'badge-critical', head: '🔴 危急手术', text: '立即急诊手术。' },
+                    { id: 'a_obst', label: '肠梗阻', desc: '肠管扩张积气，可见多发阶梯状气液平面。', dx: '肠梗阻', tag: 'badge-ct', head: '🟧 必须 CT', text: '查找梗阻点及绞窄征象。' },
+                    { id: 'a_volv', label: '肠扭转', desc: '腹腔可见巨大充气影，呈咖啡豆状。', dx: '乙状结肠扭转', tag: 'badge-urgent', head: '🟠 急诊复位', text: '急诊处理。' },
+                    { id: 'a_stone', label: '泌尿系结石', desc: '肾区/输尿管走行区可见高密度致密影。', dx: '拟泌尿系结石', tag: 'badge-ct', head: '🟧 建议 CT', text: '确诊金标准。' },
+                    { id: 'a_phle', label: '静脉石', desc: '盆腔内圆形高密度影，中心透亮。', dx: '盆腔静脉石', tag: 'badge-none', head: '⬜ 正常变异', text: '血管钙化，非结石。' },
+                    { id: 'a_hern', label: '食管裂孔疝', desc: '心影后方可见含气囊腔(胃泡)。', dx: '食管裂孔疝', tag: 'badge-none', head: '⬜ 消化科', text: '需评估时查造影/CT。' }
+                ],
+                // 7. ICU管路 (ICU)
+                icu: [
+                    { id: 'i_ngt', label: '胃管误入气道', desc: '胃管走行异常，位于支气管/肺内。', dx: '胃管异位', tag: 'badge-critical', head: '🔴 立即拔除', text: '致命风险。' },
+                    { id: 'i_ett_d', label: '插管过深', desc: '气管插管尖端超过隆突，进入右主支气管。', dx: '插管过深', tag: 'badge-urgent', head: '🟠 立即调整', text: '后退管路。' },
+                    { id: 'i_ett_s', label: '插管过浅', desc: '气管插管尖端位于声门下/气管上段。', dx: '插管过浅', tag: 'badge-urgent', head: '🟠 立即调整', text: '易脱出。' },
+                    { id: 'i_cvc', label: 'CVC异位', desc: 'CVC尖端反折入颈内静脉。', dx: 'CVC异位', tag: 'badge-none', head: '⬜ 调整位置', text: '无需进阶检查。' },
+                    { id: 'i_lead', label: '起搏器断裂', desc: '起搏器导线连续性中断。', dx: '导线断裂', tag: 'badge-urgent', head: '🟠 介入更换', text: '心内科处理。' },
+                    { id: 'i_ptx', label: '医源性气胸', desc: '穿刺置管后出现气胸线。', dx: '医源性气胸', tag: 'badge-urgent', head: '🟠 并发症', text: '同气胸处理。' },
+                    { id: 'i_sub', label: '皮下气肿', desc: '胸颈部皮下见条状/羽毛状透亮影。', dx: '皮下气肿', tag: 'badge-ct', head: '🟧 建议 CT', text: '寻找破口。' },
+                    { id: 'i_wire', label: '胸骨钢丝', desc: '胸骨正中可见排列整齐的金属固定圈影。', dx: '术后改变', tag: 'badge-none', head: '⬜ 正常', text: '观察有无断裂。' },
+                    { id: 'i_valve', label: '人工瓣膜', desc: '心影内可见人工金属瓣膜影。', dx: '术后改变', tag: 'badge-none', head: '⬜ 正常', text: '常规记录。' },
+                    { id: 'i_iabp', label: 'IABP位置异常', desc: 'IABP标记点高于主动脉结或低于L1。', dx: 'IABP异常', tag: 'badge-urgent', head: '🟠 调整位置', text: '影响血流动力学。' }
+                ]
+            },
+
+            currentTab: 'chest_common',
+            selectedIds: new Set(),
+
+            init() {
+                this.switchTab('chest_common');
+                if(window.lucide) lucide.createIcons();
+            },
+
+            switchTab(tab) {
+                this.currentTab = tab;
+                this.selectedIds.clear();
+                
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('active-tab', 'bg-slate-50', 'border-blue-600');
+                    btn.classList.add('border-transparent');
+                });
+                document.getElementById(`tab-${tab}`).classList.add('active-tab', 'bg-slate-50', 'border-blue-600');
+                document.getElementById(`tab-${tab}`).classList.remove('border-transparent');
+
+                const titles = {
+                    chest_common: '胸部常见病', chest_urgent: '胸部急症与危重', chest_chronic: '胸部慢病与变异',
+                    bone_trauma: '骨折与创伤', bone_disease: '骨病与退变',
+                    abdomen: '腹部急腹症', icu: 'ICU管路/危急'
+                };
+                document.getElementById('region-title').innerText = titles[tab];
+                this.renderFindings();
+                this.updateReport();
+            },
+
+            renderFindings() {
+                const container = document.getElementById('findings-container');
+                container.innerHTML = '';
+                const items = this.data[this.currentTab];
+                items.forEach(item => {
+                    let borderClass = 'border-slate-200';
+                    let bgHover = 'hover:border-blue-300';
+                    if(item.head.includes('危急') || item.head.includes('立即')) { borderClass = 'border-red-200'; bgHover = 'hover:border-red-400'; }
+                    else if(item.head.includes('CT') || item.head.includes('MRI')) { borderClass = 'border-orange-200'; bgHover = 'hover:border-orange-400'; }
+
+                    const el = document.createElement('label');
+                    el.className = 'cursor-pointer group relative';
+                    el.innerHTML = `
+                        <input type="checkbox" class="peer sr-only finding-checkbox" value="${item.id}" onchange="app.toggle('${item.id}')">
+                        <div class="p-3 rounded-xl border-2 ${borderClass} ${bgHover} bg-white transition-all h-full flex items-start gap-3">
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center mb-1">
+                                    <div class="font-bold text-sm text-slate-800">${item.label}</div>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded ${item.tag}">
+                                        ${item.head.split(' ')[0]} ${item.head.split(' ')[1] || ''}
+                                    </span>
+                                </div>
+                                <div class="text-xs text-slate-500 leading-snug pr-6">${item.desc}</div>
+                            </div>
+                            <div class="absolute top-3 right-3 opacity-0 peer-checked:opacity-100 text-blue-600">
+                                <i data-lucide="check-circle-2" class="w-5 h-5 fill-blue-50"></i>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(el);
+                });
+                if(window.lucide) lucide.createIcons();
+            },
+
+            toggle(id) {
+                if(this.selectedIds.has(id)) this.selectedIds.delete(id);
+                else this.selectedIds.add(id);
+                this.updateReport();
+            },
+
+            reset() {
+                this.selectedIds.clear();
+                document.querySelectorAll('.finding-checkbox').forEach(box => box.checked = false);
+                this.updateReport();
+            },
+
+            updateReport() {
+                const fDiv = document.getElementById('report-findings');
+                const iDiv = document.getElementById('report-impression');
+                const rWrapper = document.getElementById('rec-wrapper');
+                const rDiv = document.getElementById('report-rec');
+                const cAlert = document.getElementById('critical-alert');
+                
+                if(this.selectedIds.size === 0) {
+                    fDiv.innerHTML = "请在左侧勾选...";
+                    fDiv.className = "text-sm text-slate-400 italic leading-relaxed p-3 bg-slate-50 rounded border border-dashed border-slate-300 min-h-[50px]";
+                    iDiv.innerHTML = "-";
+                    iDiv.className = "text-sm font-bold text-slate-800 leading-relaxed pl-3 border-l-4 border-transparent min-h-[30px] flex items-center";
+                    rWrapper.classList.add('hidden');
+                    cAlert.classList.add('hidden');
+                    return;
+                }
+
+                let fText = [], iText = [], rHtml = [], criticalNames = [];
+
+                this.selectedIds.forEach(id => {
+                    let item = null;
+                    Object.values(this.data).forEach(arr => {
+                        const found = arr.find(i => i.id === id);
+                        if(found) item = found;
+                    });
+                    if(!item) return;
+
+                    fText.push(item.desc);
+                    iText.push(item.dx);
+                    
+                    rHtml.push(`
+                        <div class="p-2 rounded bg-white border border-slate-200 shadow-sm text-xs space-y-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-1.5 py-0.5 rounded text-[10px] ${item.tag}">${item.head}</span>
+                                <span class="font-bold text-slate-700">${item.dx}</span>
+                            </div>
+                            <div class="text-slate-600 pl-2 border-l-2 border-slate-100">${item.text}</div>
+                        </div>
+                    `);
+
+                    if(item.tag === 'badge-critical') criticalNames.push(item.dx);
+                });
+
+                fDiv.className = "text-sm text-slate-700 leading-relaxed p-3 bg-white rounded border border-slate-200 shadow-sm min-h-[50px]";
+                fDiv.innerHTML = fText.join('<br><br>');
+                
+                iDiv.className = "text-sm font-bold text-slate-800 leading-relaxed pl-3 border-l-4 border-blue-500 min-h-[30px] flex flex-col justify-center bg-blue-50/50 py-2";
+                iDiv.innerHTML = iText.map((t, i) => `<div>${i+1}. ${t}</div>`).join('');
+                
+                rDiv.innerHTML = rHtml.join('');
+                rWrapper.classList.remove('hidden');
+
+                if(criticalNames.length > 0) {
+                    cAlert.classList.remove('hidden');
+                    document.getElementById('critical-msg').innerText = `检测到: ${criticalNames.join(', ')}。`;
+                } else {
+                    cAlert.classList.add('hidden');
+                }
+                
+                if(window.lucide) lucide.createIcons();
+            }
+        };
+
+        window.onload = app.init();
+    </script>
+</body>
+</html>
