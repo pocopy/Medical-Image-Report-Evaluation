@@ -155,6 +155,7 @@
 
     </div>
 
+    <script src="./smartDRLogic.js"></script>
     <script>
         const app = {
             currentTab: 'chest_common',
@@ -323,8 +324,9 @@
                 const rWrapper = document.getElementById('rec-wrapper');
                 const rDiv = document.getElementById('report-rec');
                 const cAlert = document.getElementById('critical-alert');
-                
-                if(this.selectedIds.size === 0) {
+                const reportState = smartDRLogic.buildReportState(this.data, this.selectedIds);
+
+                if(!reportState.hasSelection) {
                     fDiv.innerHTML = "请在左侧勾选...";
                     fDiv.className = "text-sm text-slate-400 italic leading-relaxed p-3 bg-slate-50 rounded border border-dashed border-slate-300 min-h-[50px]";
                     iDiv.innerHTML = "-";
@@ -334,20 +336,7 @@
                     return;
                 }
 
-                let fText = [], iText = [], rHtml = [], criticalNames = [];
-
-                this.selectedIds.forEach(id => {
-                    let item = null;
-                    Object.values(this.data).forEach(arr => {
-                        const found = arr.find(i => i.id === id);
-                        if(found) item = found;
-                    });
-                    if(!item) return;
-
-                    fText.push(item.desc);
-                    iText.push(item.dx);
-                    
-                    rHtml.push(`
+                const rHtml = reportState.recommendations.map(item => `
                         <div class="p-2 rounded bg-white border border-slate-200 shadow-sm text-xs space-y-1">
                             <div class="flex items-center gap-2 mb-1">
                                 <span class="px-1.5 py-0.5 rounded text-[10px] ${item.tag}">${item.head}</span>
@@ -357,21 +346,18 @@
                         </div>
                     `);
 
-                    if(item.tag === 'badge-critical') criticalNames.push(item.dx);
-                });
-
                 fDiv.className = "text-sm text-slate-700 leading-relaxed p-3 bg-white rounded border border-slate-200 shadow-sm min-h-[50px]";
-                fDiv.innerHTML = fText.join('<br><br>');
+                fDiv.innerHTML = reportState.findings.join('<br><br>');
                 
                 iDiv.className = "text-sm font-bold text-slate-800 leading-relaxed pl-3 border-l-4 border-blue-500 min-h-[30px] flex flex-col justify-center bg-blue-50/50 py-2";
-                iDiv.innerHTML = iText.map((t, i) => `<div>${i+1}. ${t}</div>`).join('');
+                iDiv.innerHTML = reportState.impressions.map((t, i) => `<div>${i+1}. ${t}</div>`).join('');
                 
                 rDiv.innerHTML = rHtml.join('');
                 rWrapper.classList.remove('hidden');
 
-                if(criticalNames.length > 0) {
+                if(reportState.criticalNames.length > 0) {
                     cAlert.classList.remove('hidden');
-                    document.getElementById('critical-msg').innerText = `检测到: ${criticalNames.join(', ')}。`;
+                    document.getElementById('critical-msg').innerText = `检测到: ${reportState.criticalNames.join(', ')}。`;
                 } else {
                     cAlert.classList.add('hidden');
                 }
