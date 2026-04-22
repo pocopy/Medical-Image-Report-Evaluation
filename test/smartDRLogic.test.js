@@ -40,3 +40,13 @@ test('buildReportState ignores unknown ids and returns empty state when no valid
     assert.deepEqual(result.recommendations, []);
     assert.deepEqual(result.criticalNames, []);
 });
+
+test('buildReportState safely handles missing input data', () => {
+    const result = buildReportState(undefined, undefined);
+
+    assert.equal(result.hasSelection, false);
+    assert.deepEqual(result.findings, []);
+    assert.deepEqual(result.impressions, []);
+    assert.deepEqual(result.recommendations, []);
+    assert.deepEqual(result.criticalNames, []);
+});
